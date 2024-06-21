@@ -14,7 +14,7 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 > [!NOTE]
-> do not forget to change `<env>`/`env` to an appropriate name, for example `LIVA_processor`
+> Do not forget to change `<env>`/`env` in the above examples to an appropriate name, for example `LIVA_processor`
 
 ## Getting started
 1. Before processing
