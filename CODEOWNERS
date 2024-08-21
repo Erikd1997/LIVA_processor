@@ -1,0 +1,7 @@
+# This is a comment.
+# Each line is a file pattern followed by one or more owners.
+
+# The first block defines the main code owners. If a pull request
+# is made, @Erikd1997 will be responsible unless specified 
+# otherwise below
+*       @Erikd1997
