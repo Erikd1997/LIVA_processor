@@ -145,6 +145,36 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.show()
         
+    def CreateBaseIniFile(self):
+        # Add data for each section
+        self.config['Main'] = {'FluidDataDir': 'C:/',
+                               'OutputMeshDir': 'C:/',
+                               'TracerDataDir': 'C:/',
+                               'STLDir': 'C:/',
+                               'GroundPlaneFitDir': 'C:/',
+                               'ScreenshotDir': 'C:/',
+                               }
+        
+        self.config['QuickSettings_Tracer'] = {'MethodNumber': '0'}
+        
+        self.config['QuickSettings_Bins'] = {'MethodNumber': '4'}
+        
+        self.config['Method_0'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_1'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_2'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_3'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_4'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_GT'] = {'sphere_radius': 8.0}
+        
+        # Use the config to create a base
+        with open(self._ini_filename, 'w') as configfile:
+            self.config.write(configfile)
+        
     def InitialiseSettings(self):
         # Initialising the settings goes in two parts
         # Set up the config object
