@@ -69,7 +69,7 @@ class MainSolverWorker(QtCore.QThread):
                                                                   volume_mode=False,
                                                                   griddata_mode=useGridData,
                                                                   LSR_constrained=useLSRConstrained,
-                                                                  updateGroundEstimate=True,
+                                                                  updateGroundEstimate=useGroundPlaneFit,
                                                                   useObjectInfo=useObjectInfo,
                                                                   velMethod=methodNumber,
                                                                   coinHeight=coinHeight,
@@ -265,7 +265,7 @@ class MainSolverWorker(QtCore.QThread):
             if self.usePlaneSlice:
                 self.CSSA.AddSlicer('plane')
             else:
-                self.CSSA.AddSlicer('sphere', r = self.rSliceSphere)
+                self.CSSA.AddSlicer('sphere', r=self.rSliceSphere)
         
         # Compoute normals
         self.normals = pivDA.pointnormals_from_unstructured_vtk(self.CSSA.outputmesh_vtk)

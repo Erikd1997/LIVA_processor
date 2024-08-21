@@ -1129,7 +1129,8 @@ class CompactSphereSupportedApproximation_VTK(object):
         self.pointLocator_fluidmesh = self._build_vtkPointLocator(self.fluidmesh_vtk, points_per_bucket)
 
         # Create a pointLocator object for tracer particles
-        self.pointLocator_groundPlaneTracers = self._build_vtkPointLocator(self.groundPlaneTracers_vtk, points_per_bucket)
+        if self.updateGroundEstimate and hasattr(self, 'groundPlaneTracers_vtk'):
+            self.pointLocator_groundPlaneTracers = self._build_vtkPointLocator(self.groundPlaneTracers_vtk, points_per_bucket)
 
         # Create a cell locator for the polydata                
         if hasattr(self, 'modelPD_vtk'):

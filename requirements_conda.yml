@@ -1,0 +1,22 @@
+name: LIVA_processor
+channels:
+  - conda-forge
+  - anaconda
+  - defaults
+dependencies:
+  - python=3.11
+  - vtk
+  - keyboard
+  - numpy
+  - pandas
+  - pyqt=5
+  - pyvista
+  - numba
+  - pyvistaqt
+  - scipy
+  - vtkbool
+  - matplotlib
+  - scikit-spatial
+  - pip
+  - pip:
+    - open3d

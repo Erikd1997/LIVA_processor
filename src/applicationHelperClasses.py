@@ -11,6 +11,94 @@ import keyboard as kb
 import numpy as np
 import logging
 
+class QSettingsWindow(QtWidgets.QMainWindow):
+    okPressed = QtCore.pyqtSignal()
+    cancelPressed = QtCore.pyqtSignal()
+    applyPressed = QtCore.pyqtSignal()
+    def __init__(self, parent = None, relative_size = (0.6, 0.6), name = None):
+        super(QSettingsWindow, self).__init__(parent)
+        
+        if not isinstance(parent, type(None)):
+            size = (int(relative_size[0] * self.parentWidget().width()),
+                    int(relative_size[1] * self.parentWidget().height()))
+        else:
+            size = (400, 400)
+            
+        self.resize(*size)
+        
+        if not isinstance(name, type(None)):
+            self.setWindowTitle(name)
+            
+        
+        ### Create the main widget layout
+        # There is a list widget on the left
+        self.tabs_list = QtWidgets.QListWidget()
+        self.tabs_list.itemClicked.connect(self._changeWidget)
+        self.tabs_list.setMaximumWidth(150)
+        
+        # There is a stacked widget shown next to that
+        self.display_widget = QtWidgets.QStackedWidget()
+        
+        self.dynamic_widget = QtWidgets.QWidget()
+        self.dynamic_widget_layout = QtWidgets.QHBoxLayout()
+        self.dynamic_widget_layout.addWidget(self.tabs_list)
+        self.dynamic_widget_layout.addWidget(self.display_widget)
+        self.dynamic_widget.setLayout(self.dynamic_widget_layout)
+        
+        # Add buttons
+        self.ok_button = QtWidgets.QPushButton("OK")
+        self.ok_button.pressed.connect(self.okPressed.emit)
+        self.apply_button = QtWidgets.QPushButton("Apply")
+        self.apply_button.pressed.connect(self.applyPressed.emit)
+        self.cancel_button = QtWidgets.QPushButton("Cancel")
+        self.cancel_button.pressed.connect(self.cancelPressed.emit)
+        
+        self.button_groupbox = QtWidgets.QGroupBox()
+        self.button_groupbox_layout = QtWidgets.QHBoxLayout()
+        # self.button_groupbox_layout.addWidget(self.apply_button)
+        # self.button_groupbox_layout.addWidget(self.cancel_button)
+        self.button_groupbox_layout.addWidget(self.ok_button)
+        self.button_groupbox.setStyleSheet("QGroupBox {border:0;}")
+        self.button_groupbox.setLayout(self.button_groupbox_layout)
+        
+        # Create the widget that holds these items
+        self.main_widget = QtWidgets.QWidget()
+        self.main_widget_layout = QtWidgets.QVBoxLayout()
+        self.main_widget_layout.addWidget(self.dynamic_widget)
+        self.main_widget_layout.addWidget(self.button_groupbox, alignment = QtCore.Qt.AlignRight | QtCore.Qt.AlignBottom)
+        
+        self.main_widget.setLayout(self.main_widget_layout)
+        
+        # Add it the the main window
+        self.setCentralWidget(self.main_widget)
+        
+        # Create a dictionary to map the tab name to the widget
+        self.mappings = {}
+        
+    def addEntry(self, entryName, entryWidget, entryIcon=None):
+        # Function to add widgets to this view
+        if isinstance(entryIcon, type(None)):
+            self.tabs_list.addItem(entryName)
+        else:
+            tab_list_item = QtWidgets.QListWidgetItem(entryIcon, entryName)
+            self.tabs_list.addItem(tab_list_item)
+        self.display_widget.addWidget(entryWidget)
+        
+        self.mappings[entryName] = entryWidget
+        
+        # Slot to change widget based on what is pressed
+    def _changeWidget(self, item):
+        self.display_widget.setCurrentWidget(self.mappings[item.text()])
+        
+        # Method to update position of the widget based on the parent's position.
+        # Can be called when shown
+    def updatePosition(self):        
+        relative_loc = (int(self.parentWidget().width() / 2 - self.width() / 2),
+                        int(self.parentWidget().height() / 2 - self.height() / 2))
+        
+        loc = self.parentWidget().geometry().topLeft() + QtCore.QPoint(*relative_loc)
+        self.move(loc)
+
 class QtTabWidgetCollapsible(QtWidgets.QTabWidget):
     _contentsVisible = True
     def __init__(self, *args, **kwargs):

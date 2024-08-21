@@ -14,6 +14,9 @@ import logging
 import random
 import re
 import datetime
+import os
+import configparser
+import inspect
 
 # Well-known python modules
 import numpy as np
@@ -37,7 +40,8 @@ import pivDataAssimilationSurfaceParticlesFraction_SkinFriction as pivDA
 from applicationHelperClasses import (QtTabWidgetCollapsible,
                                       MouseInteractorStyle,
                                       QtTextEditLogger,
-                                      QtWaitingSpinner)
+                                      QtWaitingSpinner,
+                                      QSettingsWindow)
 from applicationThreadedWorkers import LoadFluidDataWorker, MainSolverWorker
 
 # =============================================================================
@@ -47,6 +51,29 @@ from applicationThreadedWorkers import LoadFluidDataWorker, MainSolverWorker
 def ifempty(val1, val2):
     return val1 if val1 != '' else val2
 
+def if_config_empty(config, key, default):
+    try:
+        out = config[key]
+    except KeyError:
+        out = default
+    finally:
+        return out
+    
+def if_config_empty2(config, key1, key2, default):
+    try:
+        out = config[key1][key2]
+    except KeyError:
+        out = default
+    finally:
+        return out
+
+
+def get_attribute_name_from_class_as_dir(class_object, attribute_object):
+    for name in class_object.__dir__():
+        if getattr(class_object, name) is attribute_object:
+            return name
+    return None
+    
 # =============================================================================
 # ### Class definitions
 # =============================================================================
@@ -55,6 +82,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # Defining some widget constants
     _baseProgressText = 'It is very quiet...'
     _NUMBER_OF_CHARACTERS_IN_STRING = 37
+    _ini_filename = 'LIVA_processor.ini'
  
     def __init__(self, parent = None):
         # Instantiate parent class
@@ -64,6 +92,10 @@ class MainWindow(QtWidgets.QMainWindow):
         w = 1600
         h = 900
         self.resize(w, h)
+        
+        # Initialise settings from ini-file
+        self.InitialiseSettings()
+        
         
         # Initialise some vtk objects
         self.InitialiseVTKObjects()
@@ -85,15 +117,6 @@ class MainWindow(QtWidgets.QMainWindow):
         empty_widget = QtWidgets.QWidget()
         empty_widget.setMaximumWidth(self.controllerTabsWidget.tabBar().width() + self.controllerTabsWidget.expand_button.width())
         
-        # self.viewerPlusController = QtWidgets.QWidget()
-        # self.viewerPlusControllerLayout = QtWidgets.QGridLayout()
-        
-        # self.viewerPlusControllerLayout.addWidget(self.viewerTabsWidget, 0, 0, -1, -1)
-        # self.viewerPlusControllerLayout.addWidget(empty_widget, 0, 5, -1, 1)
-        # self.viewerPlusControllerLayout.addWidget(self.controllerTabsWidget, 0, 4, -1, 1)
-        # self.viewerPlusControllerLayout.addWidget(self.stacked_widget)
-        # self.viewerPlusController.setLayout(self.viewerPlusControllerLayout)
-        
         # self.mainLayout = QtWidgets.QGridLayout(self.mainWidget)
         self.mainLayout = QtWidgets.QHBoxLayout(self.mainWidget)
         # self.mainLayout.addWidget(self.viewerPlusController)
@@ -101,8 +124,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mainLayout.addWidget(self.controllerTabsWidget)#, 0, 3, -1, 2)
         # self.mainLayout.addWidget(self.overlay_widget)
         self.mainLayout.addWidget(self.loggingViewWidget)#, 0, 5, -1, 2)
-        
-        # self.overlay_widget.show_overlay_widget(0)  # Initially show the overlay with tabs
         
         self.mainWidget.setLayout(self.mainLayout)
         self.setCentralWidget(self.mainWidget)
@@ -116,10 +137,171 @@ class MainWindow(QtWidgets.QMainWindow):
         self.threadManager = QtCore.QThreadPool()
 
         logging.info('Application loaded')        
+        
+        
+        font = self.font()
+        font.setPointSize(8)
+        self.setFont(font)
 
         self.show()
         
-        # self.controllerTabsWidget.moveToCorrectPosition()
+    def CreateBaseIniFile(self):
+        # Add data for each section
+        self.config['Main'] = {'FluidDataDir': 'C:/',
+                               'OutputMeshDir': 'C:/',
+                               'TracerDataDir': 'C:/',
+                               'STLDir': 'C:/',
+                               'GroundPlaneFitDir': 'C:/',
+                               'ScreenshotDir': 'C:/',
+                               }
+        
+        self.config['QuickSettings_Tracer'] = {'MethodNumber': '0'}
+        
+        self.config['QuickSettings_Bins'] = {'MethodNumber': '4'}
+        
+        self.config['Method_0'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_1'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_2'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_3'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_4'] = {'sphere_radius': 8.0}
+        
+        self.config['Method_GT'] = {'sphere_radius': 8.0}
+        
+        # Use the config to create a base
+        with open(self._ini_filename, 'w') as configfile:
+            self.config.write(configfile)
+        
+    def InitialiseSettings(self):
+        # Initialising the settings goes in two parts
+        # Set up the config object
+        self.config = configparser.ConfigParser()
+        
+        # Check if file exists
+        filesInDir = os.listdir('.')
+        
+        #2. Check if current settings coincide with one of the files
+        configFilePresent = self._ini_filename in filesInDir
+        if configFilePresent:
+            # Read the config file
+            self.config.read(self._ini_filename)
+        else:
+            # Create the config file
+            self.CreateBaseIniFile()
+
+        # Get user directory
+        user_dir = Path.home()
+
+        #### Load the data from the config file
+        # Directories
+        self.fluidDataDir = if_config_empty2(self.config, 'Main', 'FluidDataDir', r'C:/')
+        self.tracerDataDir = if_config_empty2(self.config, 'Main', 'TracerDataDir', r'C:/')
+        self.outputMeshDir = if_config_empty2(self.config, 'Main', 'OutputMeshDir', r'C:/')
+        self.STLDir = if_config_empty2(self.config, 'Main', 'STLDir', r'C:/')
+        self.groundPlaneFitFolder = if_config_empty2(self.config, 'Main', 'GroundPlaneFitDir', '')
+        self.screenshotDir = if_config_empty2(self.config, 'Main', 'ScreenshotDir', (user_dir / 'Pictures' / 'Screenshots').as_posix())
+            
+        
+        # Method settings
+        
+        # Quick-setting of data
+        
+        #### Create the settings widget
+        self.settings_widget = QSettingsWindow(parent=self,
+                                               relative_size=(0.6, 0.6),
+                                               name="Settings")
+        
+        self.CreateDirectorySettings()
+        self.CreateSizeSettings()
+        # icon = self.style().standardIcon('QtWidgets.QStyle.SP_DirIcon')
+        iconFolder = QtGui.QIcon('icons/folder.svg')
+        iconRuler = QtGui.QIcon('icons/ruler.svg')
+        self.settings_widget.addEntry('Directories', self.directory_settings,
+                                      entryIcon = iconFolder)
+        self.settings_widget.addEntry('Defaulty sizes', self.size_settings,
+                                      entryIcon = iconRuler)
+        
+    def CreateSizeSettings(self):
+        self.size_settings = QtWidgets.QWidget()
+        self.size_settings_layout = QtWidgets.QVBoxLayout()
+        
+        self.size_settings.setLayout(self.size_settings_layout)
+        
+    def CreateDirectorySettings(self):
+        # Create widget & layout
+        self.directory_settings = QtWidgets.QWidget()
+        self.directory_settings_layout = QtWidgets.QVBoxLayout()
+        
+        # Create widgets for all directories
+        directories_to_add = {'Fluid data directory': self.fluidDataDir,
+                              'Tracer data directory': self.tracerDataDir,
+                              'Output-mesh directory': self.outputMeshDir,
+                              'STL directory': self.STLDir,
+                              'Ground plane save directory': self.groundPlaneFitFolder,
+                              'Screenshot save directory': self.screenshotDir}
+        
+        # Use one groupbox to store all label, line edit and choose directory button
+        self.directory_settings_groupboxes = []
+        main_groupbox = QtWidgets.QGroupBox()
+        main_groupbox_layout = QtWidgets.QGridLayout()
+        for idx, dir_entry in enumerate(directories_to_add.keys()):
+            # Create a label
+            label = QtWidgets.QLabel(dir_entry)
+            
+            # Create a line edit
+            line_edit = QtWidgets.QLineEdit()
+            line_edit.setReadOnly(True)
+            line_edit.setText(directories_to_add[dir_entry])
+            
+            # Create an open file directory box
+            choose_dir_button = QtWidgets.QPushButton("Choose directory")
+            attribute_name = get_attribute_name_from_class_as_dir(self, directories_to_add[dir_entry])
+            choose_dir_button.pressed.connect(lambda: self.openFileDialogToSetAttribute(directories_to_add[dir_entry],
+                                                                                        dir_entry,
+                                                                                        attribute_name,
+                                                                                        line_edit
+                                                                                        )
+                                              )
+            
+            # Add all to a single groupbox
+            groupbox = QtWidgets.QGroupBox()
+            groupbox_layout = QtWidgets.QHBoxLayout()
+            groupbox_layout.addWidget(label)
+            groupbox_layout.addWidget(line_edit)
+            groupbox_layout.addWidget(choose_dir_button)
+            groupbox.setLayout(groupbox_layout)
+            
+            # # Add to the layout
+            main_groupbox_layout.addWidget(label, idx, 0, 1, 1)
+            main_groupbox_layout.addWidget(line_edit, idx, 1, 1, 1)
+            main_groupbox_layout.addWidget(choose_dir_button, idx, 2, 1, 1)
+            
+            # Add groupbox to list to store
+            self.directory_settings_groupboxes.append(groupbox)
+        main_groupbox.setLayout(main_groupbox_layout)
+        
+        self.directory_settings_layout.addWidget(main_groupbox)    
+        # Set layout to the widget
+        self.directory_settings.setLayout(self.directory_settings_layout)
+        
+    def openFileDialogToSetAttribute(self, dir_path, name, attribute, line_edit_widget):
+        # Open the file dialog
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self,
+                                                            f'Choose folder for {name}',
+                                                            dir_path
+                                                            )
+        # Enter directory name in display bar
+        setattr(self, attribute, folder)
+        
+        # Edit corresponding widget
+        line_edit_widget.setText(folder)
+        
+    def showSettings(self):
+        self.settings_widget.updatePosition()      
+        self.settings_widget.show()
         
     def closeEvent(self,event):
         result = QtWidgets.QMessageBox.question(self,
@@ -168,11 +350,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def CreateMenuBar(self):
         # Add the menu bar
         self.widgetMenuBar = self.menuBar()
-        # font = self.widgetMenuBar.font()
-        # font.setPointSize(14)
-        # self.widgetMenuBar.setFont(font)
         
-        # Add menu for "Action"
+        ### Add menu for "Action"
         self.widgetMenuAction = self.widgetMenuBar.addMenu("&Action")
         # Add action for Action to load in test values
         self.widgetMenuActionSetTestDataBins = self.widgetMenuAction.addAction("Quick-Set test data - Bins + cube")
@@ -187,6 +366,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.widgetMenuActionTakePicture = self.widgetMenuAction.addAction('Take picture')
         self.widgetMenuActionTakePicture.setShortcut(QtGui.QKeySequence("Ctrl+P"))
         self.widgetMenuActionTakePicture.triggered.connect(self.actionTakePicture)
+        
+        ### Add menu for "Preferences"
+        self.widgetMenuPreferences = self.widgetMenuBar.addMenu("&Preferences")
+        # Add action to open settings
+        self.widgetMenuPreferencesOpenSettings = self.widgetMenuPreferences.addAction('Settings')
+        self.widgetMenuPreferencesOpenSettings.triggered.connect(self.showSettings)
         
     def setTestDataTracersCube(self):
         #####################################################################
@@ -1121,11 +1306,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.isCutByPlane = self.mainSettingsSliceSphereRadiusUsePlane.isChecked()
         self.RSphereLargeToCutWith = self.mainSettingsSliceSphereRadiusSpinBox.value()
         
+        useGroundPlaneFit = hasattr(self, 'tracerDataGF')
+        if useGroundPlaneFit:
+            tracerDataGFToAdd = self.tracerDataGF.iloc[:,:3]
+        else:
+            tracerDataGFToAdd = None
+        
         # Create the worker for the main solver (is to be done once and then used in the other approaches)
-        self.threadMainSolver = MainSolverWorker(self.RSphere, self.methodNumber, coinInfo=coinInfo)
+        self.threadMainSolver = MainSolverWorker(self.RSphere, self.methodNumber, coinInfo=coinInfo, useGroundPlaneFit=useGroundPlaneFit)
         self.threadMainSolver.progress.connect(self.updateProgressBar)
         self.threadMainSolver.logSignal.connect(self.logThreaded)
         self.threadMainSolver.finishedSetup.connect(self.setupFinished)
+        
+        
         
         # Execute setup
         self.threadMainSolver.executeSetup(self.vtkOutputMesh, self.fluidDataVelfield,
@@ -1134,7 +1327,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                            self.fluidDataTypeIsBin,
                                            modelPD = self.modelSTLreader.GetOutput(),
                                            modelPDFilePath = self.modelPDFileName,
-                                           coorTracers = self.tracerDataGF.iloc[:,:3],
+                                           coorTracers = tracerDataGFToAdd,
                                            coorTracersCropDim = (self.rangeCropTracersMin.value(),
                                                                  self.rangeCropTracersMax.value()),
                                            useSlice = self.useSlicer,
@@ -1517,6 +1710,8 @@ class MainWindow(QtWidgets.QMainWindow):
             nrange = np.linspace(min(obj.velfield_in_sphere[:,2].min(), 0), obj.velfield_in_sphere[:,2].max(), 100)
         elif obj.velMethod == 'GT':
             nrange = np.linspace(min(obj.velfield_in_sphere[:,2].min(), 0), obj.cylinderHeight, 100)
+        else:
+            nrange = np.linspace(min(obj.velfield_in_sphere[:,2].min(), 0), obj.velfield_in_sphere[:,2].max(), 100)
         t1range = np.zeros_like(nrange)
         t2range = np.zeros_like(nrange)
         points = np.c_[t1range, t2range, nrange]
@@ -1777,7 +1972,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def CreateLogViewer(self):
         # Create a widget to hold the logging thingies
         self.loggingViewWidget = QtWidgets.QWidget()
-        self.loggingViewWidget.setMaximumWidth(300)
+        # self.loggingViewWidget.setMaximumWidth(300)
         
         # Create the layout
         self.loggingViewLayout = QtWidgets.QGridLayout()
@@ -1787,6 +1982,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logTextBox = QtTextEditLogger(self)
         self.logTextBox.setFormatter(logging.Formatter('%(asctime)s - [%(levelname)s] - %(message)s',
                                                        datefmt='%Y-%m-%d %H:%M:%S'))
+        # self.logTextBox.setMinimumWidth(400)
         logging.getLogger().addHandler(self.logTextBox)
         # logging.getLogger().setLevel(logging.DEBUG)
         logging.getLogger().setLevel(logging.INFO)
@@ -1911,7 +2107,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         
         self.logValuesList.setMinimumHeight(self.logValuesList.sizeHintForRow(0) * self.logValuesList.count())
-        self.logValuesList.setMinimumWidth(250)
+        self.logValuesList.setMinimumWidth(350)
         
         ##############
         # Add a loading display inside a groupbox
@@ -2709,8 +2905,9 @@ class MainWindow(QtWidgets.QMainWindow):
     
     def actionOpenSaveDirectoryDialog(self):
         # Open file dialog
+        # ADD THIS FOLDER TO THE SETTINGS
         self.saveDirectory = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose save-folder', 
-         r'C:\Users\ErikD\Documents\Me-Shizzle\Study\Master Courses\MasterThesis\src\results\Cubes',)
+         r'C:\Users\ErikD\Documents\Me-Shizzle\Study\Master Courses\MasterThesis\src\results',)
          # options=QtWidgets.QFileDialog.ShowDirsOnly)
         
         # Enter directory name in display bar
