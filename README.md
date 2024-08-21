@@ -4,7 +4,7 @@ Repository for the Local Interrogation Volume Approach processor, for the comput
 ## Setting up the required Python packages
 The Python packages can be installed into a `conda` virtual environment using the `requirements_conda.yml` file in the root directory. You can create a new virtual environment via
 ```
-conda ennv create --name <env> --file requirements_conda.yml
+conda env create --name <env> --file requirements_conda.yml
 ```
 
 If you prefer to use `pip` virtual environemnts (venv), you can use the `requirements_pip.txt` file instead. Then create a new `venv` with the necessary dependencies with
