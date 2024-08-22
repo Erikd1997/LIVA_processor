@@ -17,6 +17,9 @@ import datetime
 import os
 import configparser
 import inspect
+cwdir = os.path.abspath('')
+os.chdir(cwdir)
+
 
 # Well-known python modules
 import numpy as np
@@ -42,6 +45,7 @@ from applicationHelperClasses import (QtTabWidgetCollapsible,
                                       QtTextEditLogger,
                                       QtWaitingSpinner,
                                       QSettingsWindow)
+from applicationSetupCheck import ProgressBarSetupDialog
 from applicationThreadedWorkers import LoadFluidDataWorker, MainSolverWorker
 
 # =============================================================================
@@ -142,8 +146,6 @@ class MainWindow(QtWidgets.QMainWindow):
         font = self.font()
         font.setPointSize(8)
         self.setFont(font)
-
-        self.show()
         
     def CreateBaseIniFile(self):
         # Add data for each section
@@ -303,20 +305,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_widget.updatePosition()      
         self.settings_widget.show()
         
-    def closeEvent(self,event):
-        result = QtWidgets.QMessageBox.question(self,
-                      "Confirm Exit...",
-                      "Are you sure you want to exit ?",
-                      QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-        event.ignore()
-
-        if result == QtWidgets.QMessageBox.Yes:
-            # Close the plots upon exiting
-            self.mainPlot.close()
-            self.vtkWidgetViewer.Finalize()
-            logging.getLogger().removeHandler(self.logTextBox)
-            
-            # Close the main window
+    def closeEvent(self, event):
+        if window.setup:
+            result = QtWidgets.QMessageBox.question(self,
+                          "Confirm Exit...",
+                          "Are you sure you want to exit ?",
+                          QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            event.ignore()
+    
+            if result == QtWidgets.QMessageBox.Yes:
+                # Close the plots upon exiting
+                self.mainPlot.close()
+                self.vtkWidgetViewer.Finalize()
+                logging.getLogger().removeHandler(self.logTextBox)
+                
+                # Close the main window
+                event.accept()
+        else:
             event.accept()
             
     def setStyleSheet(self):
@@ -3407,7 +3412,21 @@ if __name__ == "__main__":
  
     app = QtWidgets.QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
+    
+    # Create the window
     window = MainWindow()
+    window.setup = False
+    
+    # Create the setup dialog
+    setupdialog = ProgressBarSetupDialog()
+    
+    if setupdialog.exec_() == QtWidgets.QDialog.Accepted:
+        window.setup = True
+        window.show()
+    else:
+        window.close()
+        sys.exit(0)
  
     # app.exec_()
     sys.exit(app.exec_())
+    
