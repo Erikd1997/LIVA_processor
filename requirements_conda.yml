@@ -17,6 +17,8 @@ dependencies:
   - vtkbool
   - matplotlib
   - scikit-spatial
+  - packaging
+  - sentry-sdk
   - pip
   - pip:
     - open3d
