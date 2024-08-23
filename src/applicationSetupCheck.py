@@ -264,9 +264,9 @@ if __name__ == '__main__':
     repo_owner='Erikd1997'    
     repo_name='LIVA_processor'    
     
-    print(get_git_version(repo_owner, repo_name))
+    print('Git latest version: ' + get_git_version(repo_owner, repo_name))
     
     version_file  = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'VERSION')
     with open(version_file, 'r') as f:
         version = f.read()
-    print(version)
+    print('Current local version: ' + version)
